@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaldik Guru SMPN 2 Ayah</title>
+    
+    <!-- Ikon Aplikasi untuk Browser dan iOS -->
+    <link rel="icon" href="logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="logo.png">
+
+    <!-- Script Manifest Dinamis untuk instalasi PWA -->
+    <script>
+        const manifest = {
+            "name": "Kaldik SMPN 2 Ayah",
+            "short_name": "Kaldik",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": "#152720",
+            "theme_color": "#152720",
+            "icons": [{
+                "src": "logo.png",
+                "sizes": "192x192",
+                "type": "image/png"
+            }, {
+                "src": "logo.png",
+                "sizes": "512x512",
+                "type": "image/png"
+            }]
+        };
+        const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = URL.createObjectURL(blob);
+        document.head.appendChild(link);
+    </script>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.292.0",
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"
+      }
+    }
+    </script>
+    
+    <!-- Babel Standalone untuk membaca JSX di dalam Browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(30, 54, 45, 0.5); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(200, 177, 122, 0.4); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(200, 177, 122, 0.7); }
+    </style>
+</head>
+<body class="bg-[#152720] text-[#D3E0DA]">
+    <!-- Wadah Utama Aplikasi -->
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+import { createRoot } from 'react-dom/client';
+import React, { useState, useEffect } from 'react';
+import { 
+  Calendar, BookOpen, X, Loader2, LayoutGrid, LayoutTemplate, Download, Smartphone, Share
+} from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getAuth, signInAnonymously } from 'firebase/auth';
+
+// --- KONFIGURASI FIREBASE PAK GAGAT ---
+const firebaseConfig = {
+  apiKey: "AIzaSyAbZcPJHnaARMEjg23iwViwtfzjwb23vKg",
+  authDomain: "project-umum-a58eb.firebaseapp.com",
+  projectId: "project-umum-a58eb",
+  storageBucket: "project-umum-a58eb.firebasestorage.app",
+  messagingSenderId: "778774567319",
+  appId: "1:778774567319:web:1c2b35335ce1c3550bccd2"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const getEventType = (title, category, customType = null) => {
+  if (customType) return customType;
+  
+  const t = title ? title.toLowerCase() : '';
+  const c = category ? category.toLowerCase() : '';
+  
+  if (c.includes('skb') || t.includes('libur') || t.includes('cuti') || t.includes('wafat') || t.includes('kenaikan') || t.includes('hari raya') || t.includes('natal') || t.includes('maulid') || t.includes('tahun baru') || t.includes('imlek') || t.includes('nyepi') || t.includes('waisak') || t.includes('pancasila') || t.includes('buruh') || t.includes('isra')) return 'holiday';
+  if (t.includes('asesmen') || t.includes('penilaian') || t.includes('anbk') || t.includes('sumatif') || t.includes('pts') || t.includes('pas') || t.includes('pat') || t.includes('sulingjar') || t.includes('ats') || t.includes('psas') || t.includes('asaj') || t.includes('asat')) return 'exam';
+  if (t.includes('rapor') || t.includes('spmb') || t.includes('ppdb') || t.includes('daftar ulang') || t.includes('mpls') || t.includes('persiapan')) return 'report';
+  if (t.includes('hut') || t.includes('lomba') || t.includes('classmeeting') || t.includes('pentas') || t.includes('wisuda') || t.includes('gelar karya') || t.includes('jeda') || t.includes('bulan bahasa') || t.includes('kunjungan')) return 'celebration';
+  if (c.includes('jateng') || c.includes('kebumen') || c.includes('dinas')) return 'dinas';
+  return 'school';
+};
+
+// Bagian ini TETAP dipertahankan sesuai instruksi agar isi kalender tidak berubah
+const getColorPalette = (type) => {
+    switch (type) {
+        case 'holiday': return { bg: 'bg-red-500', hex: '#ef4444', text: 'text-white', border: 'border-red-600', dot: 'bg-red-200', matrix: 'bg-red-600 border-red-500', label: 'Libur' };
+        case 'exam': return { bg: 'bg-purple-500', hex: '#a855f7', text: 'text-white', border: 'border-purple-600', dot: 'bg-purple-200', matrix: 'bg-purple-600 border-purple-500', label: 'Asesmen' };
+        case 'report': return { bg: 'bg-blue-500', hex: '#3b82f6', text: 'text-white', border: 'border-blue-600', dot: 'bg-blue-200', matrix: 'bg-blue-600 border-blue-500', label: 'Rapor' };
+        case 'celebration': return { bg: 'bg-pink-500', hex: '#ec4899', text: 'text-white', border: 'border-pink-600', dot: 'bg-pink-200', matrix: 'bg-pink-600 border-pink-500', label: 'Kegiatan' };
+        case 'dinas': return { bg: 'bg-orange-500', hex: '#f97316', text: 'text-white', border: 'border-orange-600', dot: 'bg-orange-200', matrix: 'bg-orange-500 border-orange-400', label: 'Dinas' };
+        default: return { bg: 'bg-emerald-500', hex: '#10b981', text: 'text-white', border: 'border-emerald-600', dot: 'bg-emerald-200', matrix: 'bg-emerald-500 border-emerald-400', label: 'Sekolah' };
+    }
+};
+
+function App() {
+  const [calendarViewMode, setCalendarViewMode] = useState('wall'); 
+  const [events, setEvents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [hoveredInfo, setHoveredInfo] = useState(null); 
+  
+  const [settings, setSettings] = useState({
+    academicYear: '2026/2027',
+  });
+
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showPwaPrompt, setShowPwaPrompt] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    signInAnonymously(auth).then(async () => {
+        try {
+            const kaldikRef = doc(db, "kaldik_master", "kaldik_smpn2ayah_master");
+            const docSnap = await getDoc(kaldikRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.settings) setSettings(data.settings);
+                if (data.events) setEvents(data.events);
+            }
+            setIsLoading(false);
+        } catch (error) {
+            console.error("Gagal memuat data dari Firebase:", error);
+            setIsLoading(false);
+        }
+    }).catch(err => {
+        console.error("Firebase Auth Error:", err);
+        setIsLoading(false);
+    });
+
+    // PWA Setup & Instalasi Agresif
+    const checkIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    setIsIOS(checkIOS);
+    
+    // Jika iOS, kita munculkan pop-up instruksi agresif karena iOS tidak ada native prompt
+    if (checkIOS && !window.navigator.standalone) {
+        setTimeout(() => setShowPwaPrompt(true), 2000);
+    }
+
+    const handleBeforeInstallPrompt = (e) => {
+        e.preventDefault();
+        setInstallPrompt(e);
+        // Munculkan Pop-up secara agresif dalam 1.5 detik
+        setTimeout(() => setShowPwaPrompt(true), 1500);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallApp = async () => {
+      if (installPrompt) {
+          installPrompt.prompt();
+          const { outcome } = await installPrompt.userChoice;
+          if (outcome === 'accepted') setShowPwaPrompt(false);
+          setInstallPrompt(null);
+      }
+  };
+
+  const renderWallCalendar = () => {
+    const months = [];
+    const startYear = parseInt(settings.academicYear.split('/')[0]);
+    for (let i = 6; i <= 17; i++) months.push(new Date(startYear, i, 1));
+    
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {months.map((mDate, idx) => {
+                const y = mDate.getFullYear();
+                const m = mDate.getMonth();
+                const days = Array.from({ length: new Date(y, m + 1, 0).getDate() }, (_, i) => i + 1);
+                const first = new Date(y, m, 1).getDay();
+                
+                return (
+                    <div key={idx} className="rounded-2xl border border-[#2A4B3F] bg-white overflow-hidden shadow-lg">
+                        <div className="bg-gradient-to-r from-[#C8B17A] to-[#9E864C] p-4 text-[#152720] font-extrabold flex justify-between uppercase border-b border-[#2A4B3F]">
+                            <span>{mDate.toLocaleString('id-ID', {month:'long'})}</span>
+                            <span>{y}</span>
+                        </div>
+                        <div className="p-3 grid grid-cols-7 gap-2 text-center text-[10px] font-bold text-slate-500">
+                            <div className="text-red-500">MIN</div><div>SEN</div><div>SEL</div><div>RAB</div><div>KAM</div><div>JUM</div><div>SAB</div>
+                            {Array(first).fill(null).map((_, i) => <div key={i}></div>)}
+                            {days.map(d => {
+                                const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                                const dEvents = events.filter(e => e.date === dStr);
+                                const top = dEvents[0];
+                                const isSun = new Date(y, m, d).getDay() === 0;
+                                
+                                let style = {};
+                                let cls = "";
+                                
+                                if (isSun) {
+                                    cls = "text-red-500 border-transparent bg-transparent";
+                                } else if (dEvents.length >= 2) {
+                                    const step = 100 / dEvents.length;
+                                    let gradientStops = [];
+                                    dEvents.forEach((ev, i) => {
+                                        const hexColor = getColorPalette(getEventType(ev.title, ev.category, ev.customType)).hex;
+                                        gradientStops.push(`${hexColor} ${i * step}%`);
+                                        gradientStops.push(`${hexColor} ${(i + 1) * step}%`);
+                                    });
+                                    style = { background: `linear-gradient(135deg, ${gradientStops.join(', ')})` };
+                                    cls = "text-white border-transparent shadow-sm";
+                                } else if (top) {
+                                    cls = getColorPalette(getEventType(top.title, top.category, top.customType)).bg + " text-white border-transparent shadow-sm";
+                                } else {
+                                    cls = "text-slate-700 border-transparent bg-transparent hover:bg-slate-100";
+                                }
+
+                                return (
+                                    <div 
+                                        key={d} 
+                                        style={style} 
+                                        onClick={() => dEvents.length > 0 && setSelectedDay({date:dStr, events:dEvents})} 
+                                        onMouseEnter={(e) => {
+                                            if(dEvents.length > 0) {
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                setHoveredInfo({x: rect.left + rect.width/2, y: rect.top - 10, events: dEvents});
+                                            }
+                                        }}
+                                        onMouseLeave={() => setHoveredInfo(null)}
+                                        className={`h-10 w-full rounded-xl flex items-center justify-center cursor-pointer transition hover:scale-105 border ${cls}`}
+                                    >
+                                        <span className="text-sm font-bold">{d}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+  };
+
+  const renderMatrixCalendar = () => {
+    const months = [];
+    const startYear = parseInt(settings.academicYear.split('/')[0]);
+    for (let i = 6; i <= 17; i++) months.push(new Date(startYear, i, 1));
+    
+    return (
+        <div className="overflow-x-auto custom-scrollbar pb-4">
+            <div className="min-w-[1000px] space-y-1">
+                {months.map((mDate, idx) => {
+                    const y = mDate.getFullYear(), m = mDate.getMonth(), last = new Date(y, m+1, 0).getDate();
+                    return (
+                        <div key={idx} className="grid grid-cols-[120px_repeat(31,1fr)] gap-1">
+                            <div className="bg-[#1E362D] text-[#C8B17A] text-[10px] p-2 rounded font-bold uppercase flex items-center justify-center text-center shadow-sm">
+                                {mDate.toLocaleString('id-ID', {month:'short'})} {y}
+                            </div>
+                            {Array.from({length:31}, (_, i) => i+1).map(d => {
+                                if (d > last) return <div key={d} className="h-8 bg-white/20 rounded"></div>;
+                                
+                                const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                                const evs = events.filter(e => e.date === dStr);
+                                const top = evs[0];
+                                const isSun = new Date(y, m, d).getDay() === 0;
+                                
+                                let dynamicClasses = "";
+                                if (isSun) {
+                                    dynamicClasses = "bg-rose-50 text-red-500 border-slate-200";
+                                } else if (top) {
+                                    dynamicClasses = getColorPalette(getEventType(top.title, top.category, top.customType)).matrix + " text-white border-transparent shadow-sm";
+                                } else {
+                                    dynamicClasses = "bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
+                                }
+                                
+                                if (evs.length > 0) dynamicClasses += " cursor-pointer hover:scale-110 transition-transform z-10 relative";
+
+                                return (
+                                    <div 
+                                        key={d} 
+                                        className={`h-8 border rounded flex items-center justify-center text-[10px] font-bold transition-colors ${dynamicClasses}`}
+                                        onClick={() => evs.length > 0 && setSelectedDay({date:dStr, events:evs})}
+                                        onMouseEnter={(e) => {
+                                            if(evs.length > 0) {
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                setHoveredInfo({x: rect.left + rect.width/2, y: rect.top - 10, events: evs});
+                                            }
+                                        }}
+                                        onMouseLeave={() => setHoveredInfo(null)}
+                                    >
+                                        {d}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    )};
+
+  return (
+    <div className="min-h-screen bg-[#152720] text-[#D3E0DA] relative pb-10">
+      {/* Header Elegan dengan nuansa Emas & Hijau */}
+      <nav className="sticky top-0 z-50 bg-[#152720]/90 backdrop-blur-md border-b border-[#2A4B3F] h-20 flex items-center px-6 shadow-sm">
+        <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
+            <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-[#E3D4A8] to-[#C8B17A] p-2 rounded-lg shadow-md border border-[#E3D4A8]/40">
+                    <BookOpen className="text-[#152720] w-6 h-6"/>
+                </div>
+                <div>
+                    <div className="font-extrabold text-xl text-[#E8F1ED]">
+                        Kaldik<span className="text-[#C8B17A]"> SMPN 2 Ayah</span>
+                    </div>
+                    <div className="text-[10px] text-[#E3D4A8] uppercase tracking-widest font-semibold bg-[#1E362D] border border-[#2A4B3F] px-2 py-0.5 rounded inline-block mt-0.5">
+                        Mode Guru (Viewer)
+                    </div>
+                </div>
+            </div>
+            
+            <div className="flex bg-[#162922] p-1 rounded-xl border border-[#2A4B3F] shadow-inner">
+                <button 
+                    onClick={() => setCalendarViewMode('wall')} 
+                    className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition ${calendarViewMode==='wall'?'bg-gradient-to-r from-[#C8B17A] to-[#9E864C] text-[#152720] shadow-md':'text-[#8B9E96] hover:text-[#C8B17A]'}`}
+                >
+                    <LayoutTemplate className="w-4 h-4"/> <span className="hidden sm:inline">Dinding</span>
+                </button>
+                <button 
+                    onClick={() => setCalendarViewMode('matrix')} 
+                    className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition ${calendarViewMode==='matrix'?'bg-gradient-to-r from-[#C8B17A] to-[#9E864C] text-[#152720] shadow-md':'text-[#8B9E96] hover:text-[#C8B17A]'}`}
+                >
+                    <LayoutGrid className="w-4 h-4"/> <span className="hidden sm:inline">Matriks</span>
+                </button>
+            </div>
+        </div>
+      </nav>
+      
+      {/* Area Konten Utama */}
+      <main className="max-w-[1400px] mx-auto px-4 py-8">
+        <div className="bg-[#1E362D]/40 rounded-3xl p-6 border border-[#2A4B3F] shadow-lg relative min-h-[500px]">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 border-b border-[#2A4B3F]/70 pb-4">
+                <div>
+                    <h3 className="text-xl md:text-2xl font-bold flex items-center gap-3 text-[#E8F1ED]">
+                        <Calendar className="text-[#C8B17A] w-7 h-7"/> Kalender Akademik Resmi
+                    </h3>
+                    <p className="text-sm text-[#8B9E96] mt-1">
+                        Tahun Pelajaran <span className="text-[#C8B17A] font-bold">{settings.academicYear}</span>
+                    </p>
+                </div>
+                
+                {/* Legenda Singkat dengan nuansa gelap/pastel */}
+                <div className="flex flex-wrap gap-2 text-[10px] font-bold">
+                    <div className="flex items-center gap-1.5 bg-[#162922] px-2.5 py-1.5 rounded-lg border border-[#2A4B3F]"><div className="w-3 h-3 rounded-full bg-red-500"></div>Libur</div>
+                    <div className="flex items-center gap-1.5 bg-[#162922] px-2.5 py-1.5 rounded-lg border border-[#2A4B3F]"><div className="w-3 h-3 rounded-full bg-purple-500"></div>Asesmen</div>
+                    <div className="flex items-center gap-1.5 bg-[#162922] px-2.5 py-1.5 rounded-lg border border-[#2A4B3F]"><div className="w-3 h-3 rounded-full bg-emerald-500"></div>Sekolah</div>
+                </div>
+            </div>
+
+            {isLoading ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#152720]/80 backdrop-blur-sm z-10 rounded-3xl">
+                    <Loader2 className="w-12 h-12 text-[#C8B17A] animate-spin mb-4" />
+                    <p className="text-[#E3D4A8] font-medium">Sinkronisasi data dengan server...</p>
+                </div>
+            ) : (
+                <div className="animate-in fade-in duration-700">
+                    {calendarViewMode === 'wall' ? renderWallCalendar() : renderMatrixCalendar()}
+                </div>
+            )}
+        </div>
+      </main>
+
+      {/* POP-UP INFO SAAT HOVER */}
+      {hoveredInfo && (
+          <div 
+            className="fixed z-[9999] pointer-events-none transform -translate-x-1/2 -translate-y-full px-3 py-2 bg-[#162922] text-[#D3E0DA] text-xs rounded-lg shadow-xl border border-[#C8B17A]/30 whitespace-nowrap"
+            style={{ left: hoveredInfo.x, top: hoveredInfo.y }}
+          >
+              <div className="font-bold mb-1 text-[#C8B17A]">{hoveredInfo.events.length} Agenda:</div>
+              {hoveredInfo.events.slice(0, 3).map((e, i) => (
+                  <div key={i} className="flex items-center gap-1.5 opacity-90">
+                      <div className={`w-1.5 h-1.5 rounded-full ${getColorPalette(getEventType(e.title, e.category, e.customType)).bg}`}></div>
+                      {e.title.length > 30 ? e.title.substring(0, 30) + '...' : e.title}
+                  </div>
+              ))}
+              {hoveredInfo.events.length > 3 && <div className="text-[10px] text-[#8B9E96] mt-1 italic">+{hoveredInfo.events.length - 3} lainnya...</div>}
+              <div className="absolute left-1/2 -bottom-1 -translate-x-1/2 w-2 h-2 bg-[#162922] border-r border-b border-[#C8B17A]/30 transform rotate-45"></div>
+          </div>
+      )}
+
+      {/* POP-UP DETAIL AGENDA SAAT TANGGAL DIKLIK */}
+      {selectedDay && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-[#1E362D] rounded-3xl max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in-95 border border-[#C8B17A]/20">
+                <div className="bg-[#152720] p-5 flex justify-between text-[#D3E0DA] border-b border-[#2A4B3F]">
+                    <div>
+                        <h4 className="font-bold text-lg text-[#C8B17A]">
+                            {new Date(selectedDay.date).toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}
+                        </h4>
+                        <p className="text-xs text-[#8B9E96]">{selectedDay.events.length} Agenda Tersimpan</p>
+                    </div>
+                    <button onClick={() => setSelectedDay(null)} className="hover:bg-[#2A4B3F] text-[#8B9E96] hover:text-[#C8B17A] p-1 rounded-lg transition">
+                        <X className="w-6 h-6"/>
+                    </button>
+                </div>
+                <div className="p-6 space-y-3 bg-[#11201A] max-h-[60vh] overflow-y-auto custom-scrollbar">
+                    {selectedDay.events.map((ev, i) => {
+                        const col = getColorPalette(getEventType(ev.title, ev.category, ev.customType));
+                        return (
+                            <div key={i} className={`p-4 rounded-xl border-l-4 bg-[#1E362D] shadow-sm transition ${col.border}`}>
+                                <div className="text-[10px] font-bold text-[#8B9E96] mb-1 flex items-center gap-1.5">
+                                    <div className={`w-2 h-2 rounded-full ${col.bg}`}></div>
+                                    {col.label} • {ev.category}
+                                </div>
+                                <div className="font-bold text-[#E8F1ED]">{ev.title}</div>
+                            </div>
+                        );
+                    })}
+                </div>
+                <div className="p-4 flex justify-end bg-[#152720] border-t border-[#2A4B3F]">
+                    <button onClick={() => setSelectedDay(null)} className="px-6 py-2.5 bg-gradient-to-r from-[#2A4B3F] to-[#1E362D] hover:from-[#1E362D] hover:to-[#2A4B3F] transition text-[#C8B17A] rounded-xl font-bold text-sm shadow-md border border-[#2A4B3F]">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* POP-UP PWA (AGRESIF) */}
+      {showPwaPrompt && (
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-[#162922] border border-[#C8B17A] w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95 flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#C8B17A] to-[#9E864C] rounded-2xl flex items-center justify-center shadow-lg mb-4">
+                    <Smartphone className="w-8 h-8 text-[#152720]" />
+                </div>
+                <h3 className="text-xl font-extrabold text-[#E8F1ED] mb-2">Instal Aplikasi Kaldik</h3>
+                <p className="text-sm text-[#8B9E96] mb-6">
+                    Akses kalender akademik lebih cepat langsung dari layar utama HP Anda, tanpa perlu membuka browser lagi.
+                </p>
+                
+                {isIOS ? (
+                    <div className="bg-[#1E362D] border border-[#2A4B3F] rounded-xl p-4 w-full text-left flex flex-col gap-3">
+                        <p className="text-xs text-[#D3E0DA] font-medium">Cara pasang di iPhone/iPad:</p>
+                        <ol className="text-xs text-[#8B9E96] list-decimal pl-4 space-y-2">
+                            <li>Tekan tombol <Share className="inline w-3 h-3 mx-1"/> <b>Bagikan (Share)</b> di Safari.</li>
+                            <li>Gulir ke bawah, lalu pilih <b>"Add to Home Screen"</b>.</li>
+                            <li>Tekan <b>"Add"</b> di pojok kanan atas.</li>
+                        </ol>
+                        <button onClick={() => setShowPwaPrompt(false)} className="mt-2 w-full py-2.5 bg-[#2A4B3F] hover:bg-[#152720] text-[#C8B17A] font-bold text-sm rounded-lg border border-[#2A4B3F] transition">Saya Mengerti</button>
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-3 w-full">
+                        <button 
+                            onClick={handleInstallApp} 
+                            className="w-full py-3 bg-gradient-to-r from-[#C8B17A] to-[#9E864C] text-[#152720] rounded-xl font-bold text-sm shadow-md flex items-center justify-center gap-2 hover:scale-105 transition"
+                        >
+                            <Download className="w-4 h-4"/> Instal Sekarang
+                        </button>
+                        <button 
+                            onClick={() => setShowPwaPrompt(false)} 
+                            className="w-full py-3 bg-transparent text-[#8B9E96] hover:text-[#C8B17A] rounded-xl font-bold text-sm transition"
+                        >
+                            Nanti Saja
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const root = createRoot(document.getElementById('root'));
+root.render(<App />);
+    </script>
+</body>
+</html>
