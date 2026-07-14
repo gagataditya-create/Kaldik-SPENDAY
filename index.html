@@ -16,8 +16,8 @@
             "short_name": "Kaldik",
             "start_url": ".",
             "display": "standalone",
-            "background_color": "#152720",
-            "theme_color": "#152720",
+            "background_color": "#020806",
+            "theme_color": "#020806",
             "icons": [{
                 "src": "logo.png",
                 "sizes": "192x192",
@@ -33,6 +33,23 @@
         link.rel = 'manifest';
         link.href = URL.createObjectURL(blob);
         document.head.appendChild(link);
+
+        // Service Worker Virtual agar browser yakin ini PWA resmi
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = "self.addEventListener('fetch', () => {});";
+                const swBlob = new Blob([swCode], {type: 'application/javascript'});
+                const swUrl = URL.createObjectURL(swBlob);
+                navigator.serviceWorker.register(swUrl).catch(err => console.log('SW reg failed', err));
+            });
+        }
+
+        // Tangkap event instalasi secepat kilat
+        window.globalDeferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.globalDeferredPrompt = e;
+        });
     </script>
 
     <!-- Tailwind CSS CDN -->
@@ -52,18 +69,41 @@
     }
     </script>
     
-    <!-- Babel Standalone untuk membaca JSX di dalam Browser -->
+    <!-- Babel Standalone untuk membaca JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <style>
+        /* Gaya Scrollbar Neon */
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(30, 54, 45, 0.5); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(200, 177, 122, 0.4); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(200, 177, 122, 0.7); }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(2, 8, 6, 0.8); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(52, 211, 153, 0.3); border-radius: 10px; box-shadow: 0 0 10px rgba(52,211,153,0.5); }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(52, 211, 153, 0.8); }
+
+        /* Utilitas Elegan Neon Dark Mode */
+        .neon-text { 
+            color: #34D399; 
+            text-shadow: 0 0 8px rgba(52, 211, 153, 0.6), 0 0 15px rgba(52, 211, 153, 0.3); 
+        }
+        .neon-bg { 
+            background-color: #10B981; 
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5), inset 0 0 8px rgba(255,255,255,0.3);
+            color: #020806;
+        }
+        .dark-glass { 
+            background: rgba(6, 20, 16, 0.7); 
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(52, 211, 153, 0.2); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 20px rgba(52, 211, 153, 0.05);
+        }
+        .neon-border {
+            border: 1px solid rgba(52, 211, 153, 0.5);
+            box-shadow: 0 0 15px rgba(52, 211, 153, 0.2), inset 0 0 10px rgba(52, 211, 153, 0.1);
+        }
     </style>
 </head>
-<body class="bg-[#152720] text-[#D3E0DA]">
-    <!-- Wadah Utama Aplikasi -->
+<body class="bg-[#020806] text-[#E0EBE6] selection:bg-[#34D399] selection:text-[#020806]">
+    <!-- Wadah Utama -->
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
@@ -76,7 +116,6 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 
-// --- KONFIGURASI FIREBASE PAK GAGAT ---
 const firebaseConfig = {
   apiKey: "AIzaSyAbZcPJHnaARMEjg23iwViwtfzjwb23vKg",
   authDomain: "project-umum-a58eb.firebaseapp.com",
@@ -92,7 +131,6 @@ const auth = getAuth(app);
 
 const getEventType = (title, category, customType = null) => {
   if (customType) return customType;
-  
   const t = title ? title.toLowerCase() : '';
   const c = category ? category.toLowerCase() : '';
   
@@ -104,7 +142,7 @@ const getEventType = (title, category, customType = null) => {
   return 'school';
 };
 
-// Bagian ini TETAP dipertahankan sesuai instruksi agar isi kalender tidak berubah
+// Palet warna tetap utuh untuk fungsi visual kegiatan
 const getColorPalette = (type) => {
     switch (type) {
         case 'holiday': return { bg: 'bg-red-500', hex: '#ef4444', text: 'text-white', border: 'border-red-600', dot: 'bg-red-200', matrix: 'bg-red-600 border-red-500', label: 'Libur' };
@@ -151,23 +189,23 @@ function App() {
         setIsLoading(false);
     });
 
-    // PWA Setup & Instalasi Agresif
     const checkIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     setIsIOS(checkIOS);
     
-    // Jika iOS, kita munculkan pop-up instruksi agresif karena iOS tidak ada native prompt
+    // Munculkan instruksi PWA Agresif dalam 1 detik
     if (checkIOS && !window.navigator.standalone) {
-        setTimeout(() => setShowPwaPrompt(true), 2000);
+        setTimeout(() => setShowPwaPrompt(true), 1000); 
     }
-
+    if (window.globalDeferredPrompt) {
+        setInstallPrompt(window.globalDeferredPrompt);
+        setTimeout(() => setShowPwaPrompt(true), 1000);
+    }
     const handleBeforeInstallPrompt = (e) => {
         e.preventDefault();
         setInstallPrompt(e);
-        // Munculkan Pop-up secara agresif dalam 1.5 detik
-        setTimeout(() => setShowPwaPrompt(true), 1500);
+        setTimeout(() => setShowPwaPrompt(true), 1000);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
@@ -194,12 +232,21 @@ function App() {
                 const first = new Date(y, m, 1).getDay();
                 
                 return (
-                    <div key={idx} className="rounded-2xl border border-[#2A4B3F] bg-white overflow-hidden shadow-lg">
-                        <div className="bg-gradient-to-r from-[#C8B17A] to-[#9E864C] p-4 text-[#152720] font-extrabold flex justify-between uppercase border-b border-[#2A4B3F]">
+                    // Bingkai Kalender menggunakan kertas Putih sesuai instruksi
+                    <div key={idx} className="rounded-2xl border border-transparent bg-white overflow-hidden shadow-[0_0_20px_rgba(0,0,0,0.8)] ring-1 ring-[#34D399]/40 relative group">
+                        
+                        {/* Efek Neon Glow yang halus di sekitar pinggiran kertas */}
+                        <div className="absolute inset-0 bg-[#34D399] opacity-0 group-hover:opacity-10 pointer-events-none transition-opacity duration-500"></div>
+
+                        {}
+                        {/* Header Bulan: Hijau Tua Redup dengan Teks Putih */}
+                        <div className="bg-[#153E2A] p-4 text-white font-extrabold flex justify-between uppercase border-b border-[#34D399]/50 shadow-sm">
                             <span>{mDate.toLocaleString('id-ID', {month:'long'})}</span>
                             <span>{y}</span>
                         </div>
-                        <div className="p-3 grid grid-cols-7 gap-2 text-center text-[10px] font-bold text-slate-500">
+
+                        {/* Isi Kertas Kalender Putih Bersih */}
+                        <div className="p-3 grid grid-cols-7 gap-2 text-center text-[10px] font-bold text-slate-500 relative z-10">
                             <div className="text-red-500">MIN</div><div>SEN</div><div>SEL</div><div>RAB</div><div>KAM</div><div>JUM</div><div>SAB</div>
                             {Array(first).fill(null).map((_, i) => <div key={i}></div>)}
                             {days.map(d => {
@@ -267,11 +314,12 @@ function App() {
                     const y = mDate.getFullYear(), m = mDate.getMonth(), last = new Date(y, m+1, 0).getDate();
                     return (
                         <div key={idx} className="grid grid-cols-[120px_repeat(31,1fr)] gap-1">
-                            <div className="bg-[#1E362D] text-[#C8B17A] text-[10px] p-2 rounded font-bold uppercase flex items-center justify-center text-center shadow-sm">
+                            {/* Header Bulan: Efek Kaca Gelap dengan Cahaya Neon */}
+                            <div className="dark-glass text-[#34D399] neon-text text-[10px] p-2 rounded font-bold uppercase flex items-center justify-center text-center">
                                 {mDate.toLocaleString('id-ID', {month:'short'})} {y}
                             </div>
                             {Array.from({length:31}, (_, i) => i+1).map(d => {
-                                if (d > last) return <div key={d} className="h-8 bg-white/20 rounded"></div>;
+                                if (d > last) return <div key={d} className="h-8 bg-white/5 rounded backdrop-blur-sm"></div>;
                                 
                                 const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                                 const evs = events.filter(e => e.date === dStr);
@@ -280,10 +328,12 @@ function App() {
                                 
                                 let dynamicClasses = "";
                                 if (isSun) {
+                                    // Kertas Putih untuk hari libur murni
                                     dynamicClasses = "bg-rose-50 text-red-500 border-slate-200";
                                 } else if (top) {
                                     dynamicClasses = getColorPalette(getEventType(top.title, top.category, top.customType)).matrix + " text-white border-transparent shadow-sm";
                                 } else {
+                                    // Kertas putih murni untuk isi
                                     dynamicClasses = "bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
                                 }
                                 
@@ -314,34 +364,35 @@ function App() {
     )};
 
   return (
-    <div className="min-h-screen bg-[#152720] text-[#D3E0DA] relative pb-10">
-      {/* Header Elegan dengan nuansa Emas & Hijau */}
-      <nav className="sticky top-0 z-50 bg-[#152720]/90 backdrop-blur-md border-b border-[#2A4B3F] h-20 flex items-center px-6 shadow-sm">
+    <div className="min-h-screen bg-[#020806] text-[#E0EBE6] relative pb-10 font-sans selection:bg-[#34D399] selection:text-black">
+      
+      {/* Header Utama dengan Efek Kaca Blur (Glassmorphism) dan Neon Border */}
+      <nav className="sticky top-0 z-50 dark-glass h-20 flex items-center px-6 border-b border-[#34D399]/30">
         <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
             <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-[#E3D4A8] to-[#C8B17A] p-2 rounded-lg shadow-md border border-[#E3D4A8]/40">
-                    <BookOpen className="text-[#152720] w-6 h-6"/>
+                <div className="neon-bg p-2 rounded-lg text-[#020806] font-black">
+                    <BookOpen className="w-6 h-6"/>
                 </div>
                 <div>
-                    <div className="font-extrabold text-xl text-[#E8F1ED]">
-                        Kaldik<span className="text-[#C8B17A]"> SMPN 2 Ayah</span>
+                    <div className="font-extrabold text-xl text-white tracking-wide">
+                        Kaldik <span className="neon-text">SMPN 2 Ayah</span>
                     </div>
-                    <div className="text-[10px] text-[#E3D4A8] uppercase tracking-widest font-semibold bg-[#1E362D] border border-[#2A4B3F] px-2 py-0.5 rounded inline-block mt-0.5">
+                    <div className="text-[10px] text-[#34D399] uppercase tracking-widest font-bold bg-[#040D0A] border border-[#34D399]/40 px-2 py-0.5 rounded inline-block mt-0.5">
                         Mode Guru (Viewer)
                     </div>
                 </div>
             </div>
             
-            <div className="flex bg-[#162922] p-1 rounded-xl border border-[#2A4B3F] shadow-inner">
+            <div className="flex bg-[#040D0A] p-1 rounded-xl border border-[#34D399]/30 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
                 <button 
                     onClick={() => setCalendarViewMode('wall')} 
-                    className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition ${calendarViewMode==='wall'?'bg-gradient-to-r from-[#C8B17A] to-[#9E864C] text-[#152720] shadow-md':'text-[#8B9E96] hover:text-[#C8B17A]'}`}
+                    className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition ${calendarViewMode==='wall' ? 'neon-bg' : 'text-[#8B9E96] hover:text-[#34D399]'}`}
                 >
                     <LayoutTemplate className="w-4 h-4"/> <span className="hidden sm:inline">Dinding</span>
                 </button>
                 <button 
                     onClick={() => setCalendarViewMode('matrix')} 
-                    className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition ${calendarViewMode==='matrix'?'bg-gradient-to-r from-[#C8B17A] to-[#9E864C] text-[#152720] shadow-md':'text-[#8B9E96] hover:text-[#C8B17A]'}`}
+                    className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition ${calendarViewMode==='matrix' ? 'neon-bg' : 'text-[#8B9E96] hover:text-[#34D399]'}`}
                 >
                     <LayoutGrid className="w-4 h-4"/> <span className="hidden sm:inline">Matriks</span>
                 </button>
@@ -351,29 +402,36 @@ function App() {
       
       {/* Area Konten Utama */}
       <main className="max-w-[1400px] mx-auto px-4 py-8">
-        <div className="bg-[#1E362D]/40 rounded-3xl p-6 border border-[#2A4B3F] shadow-lg relative min-h-[500px]">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 border-b border-[#2A4B3F]/70 pb-4">
+        <div className="dark-glass rounded-3xl p-6 relative min-h-[500px]">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 border-b border-[#34D399]/20 pb-4">
                 <div>
-                    <h3 className="text-xl md:text-2xl font-bold flex items-center gap-3 text-[#E8F1ED]">
-                        <Calendar className="text-[#C8B17A] w-7 h-7"/> Kalender Akademik Resmi
+                    <h3 className="text-xl md:text-2xl font-bold flex items-center gap-3 text-white">
+                        <Calendar className="text-[#34D399] w-7 h-7 filter drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]"/> 
+                        Kalender Akademik Resmi
                     </h3>
                     <p className="text-sm text-[#8B9E96] mt-1">
-                        Tahun Pelajaran <span className="text-[#C8B17A] font-bold">{settings.academicYear}</span>
+                        Tahun Pelajaran <span className="neon-text font-bold">{settings.academicYear}</span>
                     </p>
                 </div>
                 
-                {/* Legenda Singkat dengan nuansa gelap/pastel */}
+                {/* Legenda Singkat Neon */}
                 <div className="flex flex-wrap gap-2 text-[10px] font-bold">
-                    <div className="flex items-center gap-1.5 bg-[#162922] px-2.5 py-1.5 rounded-lg border border-[#2A4B3F]"><div className="w-3 h-3 rounded-full bg-red-500"></div>Libur</div>
-                    <div className="flex items-center gap-1.5 bg-[#162922] px-2.5 py-1.5 rounded-lg border border-[#2A4B3F]"><div className="w-3 h-3 rounded-full bg-purple-500"></div>Asesmen</div>
-                    <div className="flex items-center gap-1.5 bg-[#162922] px-2.5 py-1.5 rounded-lg border border-[#2A4B3F]"><div className="w-3 h-3 rounded-full bg-emerald-500"></div>Sekolah</div>
+                    <div className="flex items-center gap-1.5 bg-[#040D0A] px-2.5 py-1.5 rounded-lg border border-[#34D399]/30 shadow-[0_0_10px_rgba(52,211,153,0.1)]">
+                        <div className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>Libur
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-[#040D0A] px-2.5 py-1.5 rounded-lg border border-[#34D399]/30 shadow-[0_0_10px_rgba(52,211,153,0.1)]">
+                        <div className="w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]"></div>Asesmen
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-[#040D0A] px-2.5 py-1.5 rounded-lg border border-[#34D399]/30 shadow-[0_0_10px_rgba(52,211,153,0.1)]">
+                        <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>Sekolah
+                    </div>
                 </div>
             </div>
 
             {isLoading ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#152720]/80 backdrop-blur-sm z-10 rounded-3xl">
-                    <Loader2 className="w-12 h-12 text-[#C8B17A] animate-spin mb-4" />
-                    <p className="text-[#E3D4A8] font-medium">Sinkronisasi data dengan server...</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center dark-glass z-10 rounded-3xl">
+                    <Loader2 className="w-12 h-12 text-[#34D399] animate-spin mb-4 filter drop-shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
+                    <p className="neon-text font-medium text-lg tracking-wider">MENGAKSES SERVER...</p>
                 </div>
             ) : (
                 <div className="animate-in fade-in duration-700">
@@ -383,13 +441,13 @@ function App() {
         </div>
       </main>
 
-      {/* POP-UP INFO SAAT HOVER */}
+      {/* POP-UP INFO SAAT HOVER (Efek Neon) */}
       {hoveredInfo && (
           <div 
-            className="fixed z-[9999] pointer-events-none transform -translate-x-1/2 -translate-y-full px-3 py-2 bg-[#162922] text-[#D3E0DA] text-xs rounded-lg shadow-xl border border-[#C8B17A]/30 whitespace-nowrap"
+            className="fixed z-[9999] pointer-events-none transform -translate-x-1/2 -translate-y-full px-3 py-2 dark-glass neon-border text-white text-xs rounded-lg whitespace-nowrap"
             style={{ left: hoveredInfo.x, top: hoveredInfo.y }}
           >
-              <div className="font-bold mb-1 text-[#C8B17A]">{hoveredInfo.events.length} Agenda:</div>
+              <div className="font-bold mb-1 neon-text">{hoveredInfo.events.length} Agenda:</div>
               {hoveredInfo.events.slice(0, 3).map((e, i) => (
                   <div key={i} className="flex items-center gap-1.5 opacity-90">
                       <div className={`w-1.5 h-1.5 rounded-full ${getColorPalette(getEventType(e.title, e.category, e.customType)).bg}`}></div>
@@ -397,83 +455,83 @@ function App() {
                   </div>
               ))}
               {hoveredInfo.events.length > 3 && <div className="text-[10px] text-[#8B9E96] mt-1 italic">+{hoveredInfo.events.length - 3} lainnya...</div>}
-              <div className="absolute left-1/2 -bottom-1 -translate-x-1/2 w-2 h-2 bg-[#162922] border-r border-b border-[#C8B17A]/30 transform rotate-45"></div>
+              <div className="absolute left-1/2 -bottom-1 -translate-x-1/2 w-2 h-2 dark-glass border-r border-b border-[#34D399]/50 transform rotate-45"></div>
           </div>
       )}
 
       {/* POP-UP DETAIL AGENDA SAAT TANGGAL DIKLIK */}
       {selectedDay && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-            <div className="bg-[#1E362D] rounded-3xl max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in-95 border border-[#C8B17A]/20">
-                <div className="bg-[#152720] p-5 flex justify-between text-[#D3E0DA] border-b border-[#2A4B3F]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="dark-glass neon-border rounded-3xl max-w-md w-full overflow-hidden animate-in zoom-in-95">
+                <div className="bg-[#020806] p-5 flex justify-between text-white border-b border-[#34D399]/30">
                     <div>
-                        <h4 className="font-bold text-lg text-[#C8B17A]">
+                        <h4 className="font-bold text-lg neon-text">
                             {new Date(selectedDay.date).toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}
                         </h4>
-                        <p className="text-xs text-[#8B9E96]">{selectedDay.events.length} Agenda Tersimpan</p>
+                        <p className="text-xs text-[#8B9E96]">{selectedDay.events.length} Data Deskripsi</p>
                     </div>
-                    <button onClick={() => setSelectedDay(null)} className="hover:bg-[#2A4B3F] text-[#8B9E96] hover:text-[#C8B17A] p-1 rounded-lg transition">
+                    <button onClick={() => setSelectedDay(null)} className="hover:bg-[#10B981]/20 text-[#8B9E96] hover:text-[#34D399] p-1 rounded-lg transition">
                         <X className="w-6 h-6"/>
                     </button>
                 </div>
-                <div className="p-6 space-y-3 bg-[#11201A] max-h-[60vh] overflow-y-auto custom-scrollbar">
+                <div className="p-6 space-y-3 bg-[#040D0A] max-h-[60vh] overflow-y-auto custom-scrollbar">
                     {selectedDay.events.map((ev, i) => {
                         const col = getColorPalette(getEventType(ev.title, ev.category, ev.customType));
                         return (
-                            <div key={i} className={`p-4 rounded-xl border-l-4 bg-[#1E362D] shadow-sm transition ${col.border}`}>
+                            <div key={i} className={`p-4 rounded-xl border-l-4 bg-[#061410] shadow-[0_2px_10px_rgba(0,0,0,0.5)] transition ${col.border}`}>
                                 <div className="text-[10px] font-bold text-[#8B9E96] mb-1 flex items-center gap-1.5">
                                     <div className={`w-2 h-2 rounded-full ${col.bg}`}></div>
                                     {col.label} • {ev.category}
                                 </div>
-                                <div className="font-bold text-[#E8F1ED]">{ev.title}</div>
+                                <div className="font-bold text-[#E0EBE6] tracking-wide">{ev.title}</div>
                             </div>
                         );
                     })}
                 </div>
-                <div className="p-4 flex justify-end bg-[#152720] border-t border-[#2A4B3F]">
-                    <button onClick={() => setSelectedDay(null)} className="px-6 py-2.5 bg-gradient-to-r from-[#2A4B3F] to-[#1E362D] hover:from-[#1E362D] hover:to-[#2A4B3F] transition text-[#C8B17A] rounded-xl font-bold text-sm shadow-md border border-[#2A4B3F]">
-                        Tutup
+                <div className="p-4 flex justify-end bg-[#020806] border-t border-[#34D399]/30">
+                    <button onClick={() => setSelectedDay(null)} className="px-6 py-2.5 bg-[#040D0A] hover:bg-[#061410] text-[#34D399] neon-border rounded-xl font-bold text-sm transition">
+                        Tutup Panel
                     </button>
                 </div>
             </div>
         </div>
       )}
 
-      {/* POP-UP PWA (AGRESIF) */}
+      {/* POP-UP PWA (AGRESIF NEON) */}
       {showPwaPrompt && (
-        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-[#162922] border border-[#C8B17A] w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom-10 sm:zoom-in-95 flex flex-col items-center text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-[#C8B17A] to-[#9E864C] rounded-2xl flex items-center justify-center shadow-lg mb-4">
-                    <Smartphone className="w-8 h-8 text-[#152720]" />
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/90 backdrop-blur-md p-4">
+            <div className="dark-glass neon-border w-full max-w-sm rounded-3xl p-6 animate-in slide-in-from-bottom-10 sm:zoom-in-95 flex flex-col items-center text-center">
+                <div className="w-16 h-16 neon-bg rounded-2xl flex items-center justify-center mb-4">
+                    <Smartphone className="w-8 h-8 text-[#020806]" />
                 </div>
-                <h3 className="text-xl font-extrabold text-[#E8F1ED] mb-2">Instal Aplikasi Kaldik</h3>
+                <h3 className="text-xl font-black text-white mb-2 tracking-wide">SYSTEM INSTALL</h3>
                 <p className="text-sm text-[#8B9E96] mb-6">
-                    Akses kalender akademik lebih cepat langsung dari layar utama HP Anda, tanpa perlu membuka browser lagi.
+                    Akses kalender akademik lebih cepat dan optimal langsung dari layar utama perangkat Anda.
                 </p>
                 
                 {isIOS ? (
-                    <div className="bg-[#1E362D] border border-[#2A4B3F] rounded-xl p-4 w-full text-left flex flex-col gap-3">
-                        <p className="text-xs text-[#D3E0DA] font-medium">Cara pasang di iPhone/iPad:</p>
-                        <ol className="text-xs text-[#8B9E96] list-decimal pl-4 space-y-2">
-                            <li>Tekan tombol <Share className="inline w-3 h-3 mx-1"/> <b>Bagikan (Share)</b> di Safari.</li>
-                            <li>Gulir ke bawah, lalu pilih <b>"Add to Home Screen"</b>.</li>
-                            <li>Tekan <b>"Add"</b> di pojok kanan atas.</li>
+                    <div className="bg-[#040D0A] border border-[#34D399]/40 rounded-xl p-4 w-full text-left flex flex-col gap-3 shadow-[inset_0_0_15px_rgba(52,211,153,0.05)]">
+                        <p className="text-xs text-[#E0EBE6] font-medium">Bypass iOS (iPhone/iPad):</p>
+                        <ol className="text-xs text-[#34D399] list-decimal pl-4 space-y-2">
+                            <li>Tekan icon <Share className="inline w-3 h-3 mx-1"/> <b>Share</b> di Safari.</li>
+                            <li>Pilih menu <b>"Add to Home Screen"</b>.</li>
+                            <li>Tekan <b>"Add"</b> di ujung kanan atas.</li>
                         </ol>
-                        <button onClick={() => setShowPwaPrompt(false)} className="mt-2 w-full py-2.5 bg-[#2A4B3F] hover:bg-[#152720] text-[#C8B17A] font-bold text-sm rounded-lg border border-[#2A4B3F] transition">Saya Mengerti</button>
+                        <button onClick={() => setShowPwaPrompt(false)} className="mt-2 w-full py-2.5 bg-transparent border border-[#34D399] text-[#34D399] hover:bg-[#34D399]/10 font-bold text-sm rounded-lg transition">Dimengerti</button>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-3 w-full">
                         <button 
                             onClick={handleInstallApp} 
-                            className="w-full py-3 bg-gradient-to-r from-[#C8B17A] to-[#9E864C] text-[#152720] rounded-xl font-bold text-sm shadow-md flex items-center justify-center gap-2 hover:scale-105 transition"
+                            className="w-full py-3 neon-bg rounded-xl font-bold text-sm shadow-md flex items-center justify-center gap-2 hover:scale-105 transition duration-300"
                         >
-                            <Download className="w-4 h-4"/> Instal Sekarang
+                            <Download className="w-4 h-4"/> Instal Aplikasi
                         </button>
                         <button 
                             onClick={() => setShowPwaPrompt(false)} 
-                            className="w-full py-3 bg-transparent text-[#8B9E96] hover:text-[#C8B17A] rounded-xl font-bold text-sm transition"
+                            className="w-full py-3 bg-transparent text-[#8B9E96] hover:text-[#34D399] rounded-xl font-bold text-sm transition"
                         >
-                            Nanti Saja
+                            Abaikan
                         </button>
                     </div>
                 )}
